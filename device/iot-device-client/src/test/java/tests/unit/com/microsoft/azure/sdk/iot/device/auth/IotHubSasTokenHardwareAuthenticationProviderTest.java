@@ -171,7 +171,7 @@ public class IotHubSasTokenHardwareAuthenticationProviderTest
         IotHubSasTokenAuthenticationProvider sasAuth = new IotHubSasTokenHardwareAuthenticationProvider(expectedHostname, expectedGatewayHostname, expectedDeviceId, expectedModuleId, mockSecurityProviderTpm);
 
         //act
-        sasAuth.getRenewedSasToken(false, false);
+        sasAuth.getRenewedSasToken(false);
     }
 
     //Tests_SRS_IOTHUBSASTOKENHARDWAREAUTHENTICATION_34_036: [If the saved sas token has not expired and there is a security provider, but the sas token should be proactively renewed, the saved sas token shall be refreshed with a new token from the security provider.]
@@ -210,7 +210,7 @@ public class IotHubSasTokenHardwareAuthenticationProviderTest
         IotHubSasTokenAuthenticationProvider sasAuth = new IotHubSasTokenHardwareAuthenticationProvider(expectedHostname, expectedGatewayHostname, expectedDeviceId, expectedModuleId, mockSecurityProviderTpm);
 
         //act
-        sasAuth.getRenewedSasToken(true, false);
+        sasAuth.getRenewedSasToken(false);
     }
 
     @Test
@@ -252,7 +252,7 @@ public class IotHubSasTokenHardwareAuthenticationProviderTest
         IotHubSasTokenAuthenticationProvider sasAuth = new IotHubSasTokenHardwareAuthenticationProvider(expectedHostname, expectedGatewayHostname, expectedDeviceId, expectedModuleId, mockSecurityProviderTpm);
 
         //act
-        sasAuth.getRenewedSasToken(true, true);
+        sasAuth.getRenewedSasToken(true);
     }
 
     //Tests_SRS_IOTHUBSASTOKENHARDWAREAUTHENTICATION_34_005: [This function shall return the saved sas token.]
@@ -283,7 +283,7 @@ public class IotHubSasTokenHardwareAuthenticationProviderTest
         IotHubSasTokenAuthenticationProvider sasAuth = new IotHubSasTokenHardwareAuthenticationProvider(expectedHostname, expectedGatewayHostname, expectedDeviceId, expectedModuleId, mockSecurityProviderTpm);
 
         //act
-        String actualSasToken = sasAuth.getRenewedSasToken(true, false);
+        String actualSasToken = sasAuth.getRenewedSasToken(false);
 
         //assert
         assertEquals(mockSasToken.toString(), actualSasToken);

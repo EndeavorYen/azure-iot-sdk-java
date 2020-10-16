@@ -207,6 +207,13 @@ public final class DeviceClient extends InternalClient implements Closeable
         commonConstructorSetup();
     }
 
+    public DeviceClient(String hostName, String deviceId, SasTokenProvider sasTokenProvider, IotHubClientProtocol protocol, ClientOptions clientOptions)
+    {
+        super(hostName, deviceId, null, sasTokenProvider, protocol, clientOptions, SEND_PERIOD_MILLIS, getReceivePeriod(protocol));
+        commonConstructorVerifications();
+        commonConstructorSetup();
+    }
+
     /**
      * Constructor that uses x509 authentication for communicating with IotHub
      *

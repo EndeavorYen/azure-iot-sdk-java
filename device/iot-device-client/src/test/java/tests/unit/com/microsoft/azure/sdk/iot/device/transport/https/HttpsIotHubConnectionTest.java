@@ -68,7 +68,7 @@ public class HttpsIotHubConnectionTest
         new NonStrictExpectations()
         {
             {
-                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false, false);
+                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false);
                 result=testSasToken;
             }
         };
@@ -293,7 +293,7 @@ public class HttpsIotHubConnectionTest
                 result = iotHubHostname;
                 mockConfig.getDeviceId();
                 result = deviceId;
-                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false, false);
+                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false);
                 result = tokenStr;
                 mockConfig.getAuthenticationType();
                 result = DeviceClientConfig.AuthType.SAS_TOKEN;
@@ -746,7 +746,7 @@ public class HttpsIotHubConnectionTest
                 result = iotHubHostname;
                 mockConfig.getDeviceId();
                 result = deviceId;
-                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false, false);
+                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false);
                 result = tokenStr;
             }
         };
@@ -1023,7 +1023,7 @@ public class HttpsIotHubConnectionTest
                 result = iotHubHostname;
                 mockConfig.getDeviceId();
                 result = deviceId;
-                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false, false);
+                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false);
                 result = tokenStr;
             }
         };
@@ -1698,7 +1698,7 @@ public class HttpsIotHubConnectionTest
                 result = iotHubHostname;
                 mockConfig.getDeviceId();
                 result = deviceId;
-                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false, false);
+                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false);
                 result = tokenStr;
             }
         };
@@ -1887,7 +1887,7 @@ public class HttpsIotHubConnectionTest
         new Verifications()
         {
             {
-                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false, false);
+                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false);
                 times = 1;
             }
         };
@@ -1914,7 +1914,7 @@ public class HttpsIotHubConnectionTest
         new Verifications()
         {
             {
-                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false, false);
+                mockConfig.getSasTokenAuthentication().getRenewedSasToken(false);
                 times = 1;
             }
         };

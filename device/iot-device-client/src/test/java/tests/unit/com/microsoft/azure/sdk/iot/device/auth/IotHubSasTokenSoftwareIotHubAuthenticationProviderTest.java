@@ -168,7 +168,7 @@ public class IotHubSasTokenSoftwareIotHubAuthenticationProviderTest
         IotHubSasTokenAuthenticationProvider sasAuth = new IotHubSasTokenSoftwareAuthenticationProvider(expectedHostname, expectedGatewayHostname, expectedDeviceId, expectedModuleId, expectedDeviceKey, expectedSasToken);
 
         //act
-        sasAuth.getRenewedSasToken(false, false);
+        sasAuth.getRenewedSasToken(false);
 
     }
 
@@ -201,7 +201,7 @@ public class IotHubSasTokenSoftwareIotHubAuthenticationProviderTest
         IotHubSasTokenAuthenticationProvider sasAuth = new IotHubSasTokenSoftwareAuthenticationProvider(expectedHostname, expectedGatewayHostname, expectedDeviceId, expectedModuleId, expectedDeviceKey, expectedSasToken);
 
         //act
-        sasAuth.getRenewedSasToken(true, false);
+        sasAuth.getRenewedSasToken(false);
     }
 
     @Test
@@ -232,7 +232,7 @@ public class IotHubSasTokenSoftwareIotHubAuthenticationProviderTest
         IotHubSasTokenAuthenticationProvider sasAuth = new IotHubSasTokenSoftwareAuthenticationProvider(expectedHostname, expectedGatewayHostname, expectedDeviceId, expectedModuleId, expectedDeviceKey, expectedSasToken);
 
         //act
-        sasAuth.getRenewedSasToken(true, true);
+        sasAuth.getRenewedSasToken(true);
     }
 
     //Tests_SRS_IOTHUBSASTOKENAUTHENTICATION_34_006: [If the saved sas token has not expired and there is a device key present, but this method is called to proactively renew and the token should renew, the saved sas token shall be renewed.]
@@ -262,7 +262,7 @@ public class IotHubSasTokenSoftwareIotHubAuthenticationProviderTest
         IotHubSasTokenAuthenticationProvider sasAuth = new IotHubSasTokenSoftwareAuthenticationProvider(expectedHostname, expectedGatewayHostname, expectedDeviceId, expectedModuleId, expectedDeviceKey, expectedSasToken);
 
         //act
-        sasAuth.getRenewedSasToken(true, false);
+        sasAuth.getRenewedSasToken(false);
     }
 
     //Tests_SRS_IOTHUBSASTOKENSOFTWAREAUTHENTICATION_34_005: [This function shall return the saved sas token.]

@@ -175,6 +175,12 @@ public class ModuleClient extends InternalClient
         commonConstructorVerifications(protocol, this.getConfig());
     }
 
+    public ModuleClient(String hostName, String deviceId, String moduleId, SasTokenProvider sasTokenProvider, IotHubClientProtocol protocol, ClientOptions clientOptions)
+    {
+        super(hostName, deviceId, moduleId, sasTokenProvider, protocol, clientOptions, SEND_PERIOD_MILLIS, getReceivePeriod(protocol));
+        commonConstructorVerifications(protocol, this.getConfig());
+    }
+
     /**
      * Create a module client instance from your environment variables
      * @return the created module client instance

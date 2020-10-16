@@ -81,9 +81,9 @@ public abstract class IotHubSasTokenWithRefreshAuthenticationProvider extends Io
      * @throws TransportException If a TransportException is encountered while refreshing the sas token
      */
     @Override
-    public String getRenewedSasToken(boolean proactivelyRenew, boolean forceRenewal) throws IOException, TransportException
+    public String getRenewedSasToken(boolean forceRenewal) throws IOException, TransportException
     {
-        if (this.shouldRefreshToken(proactivelyRenew) || forceRenewal)
+        if (forceRenewal)
         {
             log.debug("Renewing the internal sas token");
             // Codes_SRS_MODULEAUTHENTICATIONWITHTOKENREFRESH_34_004: [This function shall invoke shouldRefreshSasToken, and if it should refresh, this function shall refresh the sas token.]

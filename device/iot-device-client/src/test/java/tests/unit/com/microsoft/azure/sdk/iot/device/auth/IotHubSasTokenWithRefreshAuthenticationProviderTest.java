@@ -126,7 +126,7 @@ public class IotHubSasTokenWithRefreshAuthenticationProviderTest
         moduleAuthenticationWithTokenRefresh.nextToken = newSasToken;
 
         //act
-        String actual = moduleAuthenticationWithTokenRefresh.getRenewedSasToken(true, false);
+        String actual = moduleAuthenticationWithTokenRefresh.getRenewedSasToken(false);
 
         //assert
         assertEquals(newSasToken.toString(), actual);
@@ -144,7 +144,7 @@ public class IotHubSasTokenWithRefreshAuthenticationProviderTest
         moduleAuthenticationWithTokenRefresh.nextToken = newSasToken;
 
         //act
-        String actual = moduleAuthenticationWithTokenRefresh.getRenewedSasToken(true, true);
+        String actual = moduleAuthenticationWithTokenRefresh.getRenewedSasToken(true);
 
         //assert
         assertEquals(newSasToken.toString(), actual);
@@ -164,7 +164,7 @@ public class IotHubSasTokenWithRefreshAuthenticationProviderTest
         moduleAuthenticationWithTokenRefresh.nextToken = newSasToken;
 
         //act
-        String actual = moduleAuthenticationWithTokenRefresh.getRenewedSasToken(false, false);
+        String actual = moduleAuthenticationWithTokenRefresh.getRenewedSasToken(false);
 
         //assert
         assertEquals(oldSasToken.toString(), actual);

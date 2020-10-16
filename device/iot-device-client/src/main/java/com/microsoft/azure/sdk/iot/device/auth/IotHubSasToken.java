@@ -231,7 +231,7 @@ public final class IotHubSasToken
      * Return the expiry time for the provided sasToken in seconds.
      *
      * @param sasToken the token to return the expiry time
-     * @return a long with the expiry time in seconds.
+     * @return a long with the expiry time in milliseconds.
      */
     static Long getExpiryTimeFromToken(String sasToken)
     {

@@ -129,7 +129,7 @@ public class MqttIotHubConnection implements IotHubTransportConnection, MqttMess
                 if (this.config.getAuthenticationType() == DeviceClientConfig.AuthType.SAS_TOKEN)
                 {
                     this.log.trace("MQTT connection will use sas token based auth");
-                    this.iotHubUserPassword = this.config.getSasTokenAuthentication().getRenewedSasToken(false, false);
+                    this.iotHubUserPassword = this.config.getSasTokenAuthentication().getRenewedSasToken(false);
                     this.webSocketQueryString = NO_CLIENT_CERT_QUERY_STRING;
                 }
                 else if (this.config.getAuthenticationType() == DeviceClientConfig.AuthType.X509_CERTIFICATE)

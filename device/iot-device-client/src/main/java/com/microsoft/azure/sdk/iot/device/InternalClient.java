@@ -128,6 +128,28 @@ public class InternalClient
         this.deviceIO = new DeviceIO(this.config, sendPeriodMillis, receivePeriodMillis);
     }
 
+    InternalClient(String hostName, String deviceId, String moduleId, SasTokenProvider sasTokenProvider, IotHubClientProtocol protocol, ClientOptions clientOptions, long sendPeriodMillis, long receivePeriodMillis)
+    {
+        if (hostName == null)
+        {
+            throw new IllegalArgumentException("Host name cannot be null");
+        }
+
+        if (protocol == null)
+        {
+            throw new IllegalArgumentException("Protocol cannot be null.");
+        }
+
+        this.config = new DeviceClientConfig(hostName, sasTokenProvider, clientOptions, deviceId, moduleId);
+        this.config.setProtocol(protocol);
+        if (clientOptions != null) {
+            this.config.modelId = clientOptions.getModelId();
+        }
+
+        this.deviceIO = new DeviceIO(this.config, sendPeriodMillis, receivePeriodMillis);
+    }
+
+
     //unused
     InternalClient()
     {

@@ -118,16 +118,12 @@ public class IotHubSasTokenSoftwareAuthenticationProvider extends IotHubSasToken
     /**
      * Getter for SasToken. If the saved token has expired, this method shall renew it if possible
      *
-     * @param proactivelyRenew if true, this method will generate a fresh sas token even if the previously saved token
-     *                                 has not expired yet as long as the current token has lived beyond its buffer.
-     *                                 Use this for pre-emptively renewing sas tokens.
-     *
      * @return The value of SasToken
      */
     @Override
-    public String getRenewedSasToken(boolean proactivelyRenew, boolean forceRenewal) throws IOException, TransportException
+    public String getRenewedSasToken(boolean forceRenewal) throws IOException, TransportException
     {
-        if (this.shouldRefreshToken(proactivelyRenew) || forceRenewal)
+        if (forceRenewal)
         {
             if (this.deviceKey != null)
             {
