@@ -35,6 +35,10 @@ public class MultiplexingClient
     private ProxySettings proxySettings;
     private final Object lock = new Object();
 
+    // Connection status change callbacks for the multiplexed connection
+    private IotHubConnectionStatusChangeCallback connectionStatusChangeCallback;
+    private Object connectionStatusChangeCallbackContext;
+
     /**
      * The maximum number of devices that can be multiplexed together on a single multiplexed AMQPS connection
      */
@@ -214,6 +218,8 @@ public class MultiplexingClient
             {
                 log.debug("Creating DeviceIO layer for multiplexing client since this is the first registered device");
                 this.deviceIO = new DeviceIO(deviceClient.getConfig(), SEND_PERIOD_MILLIS, RECEIVE_PERIOD_MILLIS);
+
+                this.deviceIO.registerMultiplexingConnectionStateCallback(this.connectionStatusChangeCallback, this.connectionStatusChangeCallbackContext);
             }
 
             if (deviceClient.getDeviceIO() != null && deviceClient.getDeviceIO().isOpen())
@@ -266,6 +272,33 @@ public class MultiplexingClient
             this.deviceClientList.remove(deviceClient);
             this.deviceIO.unregisterMultiplexedDeviceClient(deviceClient.getConfig());
             deviceClient.setDeviceIO(null);
+        }
+    }
+
+    /**
+     * Registers a callback to be executed when the connection status of the multiplexed connection as a whole changes.
+     * The callback will be fired with a status and a reason why the multiplexed connection's status changed. When the
+     * callback is fired, the provided context will be provided alongside the status and reason.
+     *
+     * <p>Note that this callback will not be fired for device specific connection status changes. In order to be notified
+     * when a particular device's connection status changes, you will need to register a connection status change callback
+     * on that device client instance using {@link DeviceClient#registerConnectionStatusChangeCallback(IotHubConnectionStatusChangeCallback, Object)}.
+     *
+     * <p>Note that the thread used to deliver this callback should not be used to call open()/closeNow() on the client
+     * that this callback belongs to. All open()/closeNow() operations should be done on a separate thread</p>
+     *
+     * @param callback The callback to be fired when the connection status of the multiplexed connection changes.
+     *                 Can be null to unset this listener as long as the provided callbackContext is also null.
+     * @param callbackContext a context to be passed to the callback. Can be {@code null}.
+     */
+    public void registerConnectionStatusChangeCallback(IotHubConnectionStatusChangeCallback callback, Object callbackContext)
+    {
+        this.connectionStatusChangeCallback = callback;
+        this.connectionStatusChangeCallbackContext = callbackContext;
+
+        if (this.deviceIO != null)
+        {
+            this.deviceIO.registerMultiplexingConnectionStateCallback(callback, callbackContext);
         }
     }
 

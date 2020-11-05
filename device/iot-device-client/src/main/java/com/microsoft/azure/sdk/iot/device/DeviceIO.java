@@ -445,6 +445,11 @@ public final class DeviceIO implements IotHubConnectionStatusChangeCallback
         this.transport.registerConnectionStatusChangeCallback(statusChangeCallback, callbackContext, deviceId);
     }
 
+    public void registerMultiplexingConnectionStateCallback(IotHubConnectionStatusChangeCallback callback, Object callbackContext)
+    {
+        this.transport.registerMultiplexingConnectionStateCallback(callback, callbackContext);
+    }
+
     /*
      * IotHubTransport layer will notify this layer when the connection is established and when it is lost. This layer should start/stop
      * the send/receive threads accordingly

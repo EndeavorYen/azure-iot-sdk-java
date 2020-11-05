@@ -309,7 +309,7 @@ public class MultiplexingClientTests extends IntegrationTest
 
         for (int i = 1; i < testInstance.deviceClientArray.size(); i++)
         {
-            assertDeviceSessionOpens(connectionStatusChangeTrackers[i], DEVICE_SESSION_OPEN_TIMEOUT);
+            assertConnectionStateCallbackFiredConnected(connectionStatusChangeTrackers[i], DEVICE_SESSION_OPEN_TIMEOUT);
         }
 
         testSendingMessagesFromMultiplexedClients(testInstance.deviceClientArray);
@@ -352,17 +352,17 @@ public class MultiplexingClientTests extends IntegrationTest
         }
     }
 
+    private static Success testSendingMessageFromMultiplexedClient(DeviceClient multiplexedClient)
+    {
+        return testSendingMessageFromMultiplexedClient(multiplexedClient, new Message("some payload"));
+    }
+
     private static Success testSendingMessageFromMultiplexedClient(DeviceClient multiplexedClient, Message message)
     {
         Success messageSendSuccess = new Success();
         EventCallback messageSentCallback = new EventCallback(IotHubStatusCode.OK_EMPTY);
         multiplexedClient.sendEventAsync(message, messageSentCallback, messageSendSuccess);
         return messageSendSuccess;
-    }
-
-    private static Success testSendingMessageFromMultiplexedClient(DeviceClient multiplexedClient)
-    {
-        return testSendingMessageFromMultiplexedClient(multiplexedClient, new Message("some payload"));
     }
 
     private static void waitForMessageToBeAcknowledged(Success messageSendSuccess) throws InterruptedException
@@ -686,7 +686,7 @@ public class MultiplexingClientTests extends IntegrationTest
 
         testInstance.multiplexingClient.registerDeviceClient(clientToRegisterAfterOpen, false);
 
-        assertDeviceSessionOpens(connectionStatusChangeTracker, DEVICE_SESSION_OPEN_TIMEOUT);
+        assertConnectionStateCallbackFiredConnected(connectionStatusChangeTracker, DEVICE_SESSION_OPEN_TIMEOUT);
 
         testSendingMessageFromMultiplexedClient(clientToRegisterAfterOpen);
     }
@@ -705,7 +705,7 @@ public class MultiplexingClientTests extends IntegrationTest
 
         testInstance.multiplexingClient.open();
 
-        assertDeviceSessionOpens(connectionStatusChangeTracker, DEVICE_SESSION_OPEN_TIMEOUT);
+        assertConnectionStateCallbackFiredConnected(connectionStatusChangeTracker, DEVICE_SESSION_OPEN_TIMEOUT);
 
         testInstance.multiplexingClient.unregisterDeviceClient(clientToUnregisterAfterOpen);
 
@@ -759,10 +759,10 @@ public class MultiplexingClientTests extends IntegrationTest
             waitForMessageToBeAcknowledged(messageSendSuccess, "Timed out waiting for error injection message to be acknowledged");
 
             // Now that error injection message has been sent, need to wait for the device session to drop
-            assertDeviceCallsbackDisconnectedRetrying(connectionStatusChangeTrackers[i]);
+            assertConnectionStateCallbackFiredDisconnectedRetrying(connectionStatusChangeTrackers[i]);
 
             // Next, the faulted device should eventually recover
-            assertDeviceSessionOpens(connectionStatusChangeTrackers[i], FAULT_INJECTION_RECOVERY_TIMEOUT_MILLIS);
+            assertConnectionStateCallbackFiredConnected(connectionStatusChangeTrackers[i], FAULT_INJECTION_RECOVERY_TIMEOUT_MILLIS);
 
             for (int j = i + 1; j < DEVICE_MULTIPLEX_COUNT; j++)
             {
@@ -786,6 +786,7 @@ public class MultiplexingClientTests extends IntegrationTest
     public void multiplexedConnectionRecoversFromTcpConnectionDrop() throws Exception
     {
         testInstance.setup(DEVICE_MULTIPLEX_COUNT);
+        ConnectionStatusChangeTracker multiplexedConnectionStatusChangeTracker = new ConnectionStatusChangeTracker();
         ConnectionStatusChangeTracker[] connectionStatusChangeTrackers = new ConnectionStatusChangeTracker[DEVICE_MULTIPLEX_COUNT];
 
         for (int i = 0; i < DEVICE_MULTIPLEX_COUNT; i++)
@@ -794,7 +795,13 @@ public class MultiplexingClientTests extends IntegrationTest
             testInstance.deviceClientArray.get(i).registerConnectionStatusChangeCallback(connectionStatusChangeTrackers[i], null);
         }
 
+        testInstance.multiplexingClient.registerConnectionStatusChangeCallback(multiplexedConnectionStatusChangeTracker, null);
+
         testInstance.multiplexingClient.open();
+
+        assertTrue(
+                "Multiplexed level connection status callback should have fired with CONNECTED after opening the multiplexing client",
+                multiplexedConnectionStatusChangeTracker.isOpen);
 
         for (int i = 0; i < DEVICE_MULTIPLEX_COUNT; i++)
         {
@@ -806,13 +813,21 @@ public class MultiplexingClientTests extends IntegrationTest
         waitForMessageToBeAcknowledged(messageSendSuccess, "Timed out waiting for error injection message to be acknowledged");
 
         // Now that error injection message has been sent, need to wait for the device session to drop
-        assertDeviceCallsbackDisconnectedRetrying(connectionStatusChangeTrackers[0]);
-
-        // For each multiplexed device, use fault injection to drop the session and see if it can recover, one device at a time
+        // Every registered device level connection status change callback should have fired with DISCONNECTED_RETRYING
+        // and so should the multiplexing level connection status change callback
+        assertConnectionStateCallbackFiredDisconnectedRetrying(multiplexedConnectionStatusChangeTracker);
         for (int i = 0; i < DEVICE_MULTIPLEX_COUNT; i++)
         {
-            // Next, the faulted device should eventually recover
-            assertDeviceSessionOpens(connectionStatusChangeTrackers[i], FAULT_INJECTION_RECOVERY_TIMEOUT_MILLIS);
+            assertConnectionStateCallbackFiredDisconnectedRetrying(connectionStatusChangeTrackers[i]);
+        }
+
+        // Now that the fault injection has taken place, make sure that the multiplexed connection and all of its device
+        // sessions recover. Once recovered, try sending telemetry on each device.
+        assertConnectionStateCallbackFiredConnected(multiplexedConnectionStatusChangeTracker, FAULT_INJECTION_RECOVERY_TIMEOUT_MILLIS);
+        for (int i = 0; i < DEVICE_MULTIPLEX_COUNT; i++)
+        {
+            // The faulted device should eventually recover
+            assertConnectionStateCallbackFiredConnected(connectionStatusChangeTrackers[i], FAULT_INJECTION_RECOVERY_TIMEOUT_MILLIS);
 
             // Try to send a message over the now-recovered device session
             testSendingMessageFromMultiplexedClient(testInstance.deviceClientArray.get(i));
@@ -822,6 +837,10 @@ public class MultiplexingClientTests extends IntegrationTest
         testSendingMessagesFromMultiplexedClients(testInstance.deviceClientArray);
 
         testInstance.multiplexingClient.close();
+
+        assertTrue(
+                "Multiplexed level connection status callback should have fired with DISCONNECTED after closing the multiplexing client",
+                multiplexedConnectionStatusChangeTracker.clientClosedGracefully);
 
         assertMultiplexedDevicesClosedGracefully(connectionStatusChangeTrackers);
     }
@@ -834,7 +853,7 @@ public class MultiplexingClientTests extends IntegrationTest
         }
     }
 
-    private static void assertDeviceSessionOpens(ConnectionStatusChangeTracker connectionStatusChangeTracker, int timeoutMillis) throws InterruptedException {
+    private static void assertConnectionStateCallbackFiredConnected(ConnectionStatusChangeTracker connectionStatusChangeTracker, int timeoutMillis) throws InterruptedException {
         long startTime = System.currentTimeMillis();
         while (!connectionStatusChangeTracker.isOpen)
         {
@@ -862,7 +881,7 @@ public class MultiplexingClientTests extends IntegrationTest
         assertTrue("Device session was closed, but did not close gracefully", connectionStatusChangeTracker.clientClosedGracefully);
     }
 
-    private static void assertDeviceCallsbackDisconnectedRetrying(ConnectionStatusChangeTracker connectionStatusChangeTracker) throws InterruptedException
+    private static void assertConnectionStateCallbackFiredDisconnectedRetrying(ConnectionStatusChangeTracker connectionStatusChangeTracker) throws InterruptedException
     {
         long startTime = System.currentTimeMillis();
         while (!connectionStatusChangeTracker.wentDisconnectedRetrying)

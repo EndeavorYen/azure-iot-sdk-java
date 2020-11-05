@@ -62,6 +62,10 @@ public class IotHubTransport implements IotHubListener
     private final Map<String, IotHubConnectionStatusChangeCallback> connectionStatusChangeCallbacks = new ConcurrentHashMap<>();
     private final Map<String, Object> connectionStatusChangeCallbackContexts = new ConcurrentHashMap<>();
 
+    // Connection Status callback information for multiplexed connection level events (whole multiplexed connection dropped, for instance)
+    private IotHubConnectionStatusChangeCallback multiplexingStateCallback;
+    private Object multiplexingStateCallbackContext;
+
     // Callback for notifying the DeviceIO layer of connection status change events. The deviceIO layer
     // should stop spawning send/receive threads when this layer is disconnected or disconnected retrying
     private IotHubConnectionStatusChangeCallback deviceIOConnectionStatusChangeCallback;
@@ -650,6 +654,17 @@ public class IotHubTransport implements IotHubListener
             }
 
         }
+    }
+
+    public void registerMultiplexingConnectionStateCallback(IotHubConnectionStatusChangeCallback callback, Object callbackContext)
+    {
+        if (callback == null && callbackContext != null)
+        {
+            throw new IllegalArgumentException("Cannot have a null callback and a non-null context associated with it");
+        }
+
+        this.multiplexingStateCallback = callback;
+        this.multiplexingStateCallbackContext = callbackContext;
     }
 
     public void registerMultiplexedDeviceClient(DeviceClientConfig config, boolean blocking)
@@ -1322,6 +1337,12 @@ public class IotHubTransport implements IotHubListener
                 {
                     deviceConnectionStates.put(config.getDeviceId(), newConnectionStatus);
                 }
+            }
+
+            // If multiplexing, fire the multiplexing state callback as long as it was set.
+            if (deviceClientConfigs.size() > 1 && this.multiplexingStateCallback != null)
+            {
+                this.multiplexingStateCallback.execute(newConnectionStatus, reason, throwable, this.multiplexingStateCallbackContext);
             }
 
             this.deviceIOConnectionStatusChangeCallback.execute(newConnectionStatus, reason, throwable, null);
