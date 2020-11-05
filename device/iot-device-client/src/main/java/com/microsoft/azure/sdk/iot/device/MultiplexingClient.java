@@ -171,7 +171,7 @@ public class MultiplexingClient
      * @throws IOException if any exception is thrown when closing the provided device client's old transport layer.
      * @param deviceClient The device client to associate with this multiplexing client.
      */
-    public void registerDeviceClient(DeviceClient deviceClient, boolean blocking) throws IOException {
+    public void registerDeviceClient(DeviceClient deviceClient, boolean blocking) {
         Objects.requireNonNull(deviceClient);
 
         synchronized (this.lock)
