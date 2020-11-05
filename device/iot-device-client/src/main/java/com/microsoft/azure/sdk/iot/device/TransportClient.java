@@ -15,8 +15,13 @@ import java.util.ArrayList;
  * the connection. 
  * </p>
  * The multiplexed connection is supported with AMQPS / AMQPS_WS protocols.
+ *
+ * @deprecated This client has been replaced with {@link MultiplexingClient} since this client does not support adding
+ * or removing devices once the connection has been established. {@link MultiplexingClient} allows for adding and removing
+ * of devices from multiplexed connections before or after opening the connection.
  */
 @Slf4j
+@Deprecated
 public class TransportClient
 {
     public enum TransportClientState
@@ -98,7 +103,7 @@ public class TransportClient
             {
                 deviceClientList.get(i).setDeviceIO(this.deviceIO);
                 //propagate this client config to amqp connection
-                this.deviceIO.addClient(deviceClientList.get(i).getConfig());
+                this.deviceIO.registerMultiplexedDeviceClient(deviceClientList.get(i).getConfig(), false);
             }
 
             // Codes_SRS_TRANSPORTCLIENT_12_013: [The function shall open the transport in multiplexing mode.]
