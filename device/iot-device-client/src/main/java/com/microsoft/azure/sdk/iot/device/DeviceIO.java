@@ -153,29 +153,19 @@ public final class DeviceIO implements IotHubConnectionStatusChangeCallback
         }
     }
 
-    void registerMultiplexedDeviceClient(DeviceClientConfig config, boolean blocking)
+    void registerMultiplexedDeviceClient(List<DeviceClientConfig> configs) throws InterruptedException
     {
-        if (config == null)
-        {
-            throw new IllegalArgumentException("Config cannot be null");
-        }
-
         if (this.transport != null)
         {
-            this.transport.registerMultiplexedDeviceClient(config, blocking);
+            this.transport.registerMultiplexedDeviceClient(configs);
         }
     }
 
-    void unregisterMultiplexedDeviceClient(DeviceClientConfig config)
+    void unregisterMultiplexedDeviceClient(List<DeviceClientConfig> configs) throws InterruptedException
     {
-        if (config == null)
-        {
-            throw new IllegalArgumentException("Config cannot be null");
-        }
-
         if (this.transport != null)
         {
-            this.transport.unregisterMultiplexedDeviceClient(config);
+            this.transport.unregisterMultiplexedDeviceClient(configs);
         }
     }
 

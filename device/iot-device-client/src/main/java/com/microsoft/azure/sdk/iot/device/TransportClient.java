@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * <p>
@@ -99,11 +100,21 @@ public class TransportClient
             deviceClientList.get(0).setDeviceIO(this.deviceIO);
 
             // Codes_SRS_TRANSPORTCLIENT_12_012: [The function shall set the created DeviceIO to all registered device client.]
+            List<DeviceClientConfig> configList = new ArrayList<>();
             for (int i = 1; i < this.deviceClientList.size(); i++)
             {
                 deviceClientList.get(i).setDeviceIO(this.deviceIO);
                 //propagate this client config to amqp connection
-                this.deviceIO.registerMultiplexedDeviceClient(deviceClientList.get(i).getConfig(), false);
+                configList.add(deviceClientList.get(i).getConfig());
+            }
+
+            try
+            {
+                this.deviceIO.registerMultiplexedDeviceClient(configList);
+            }
+            catch (InterruptedException e)
+            {
+                throw new IOException("Interrupted while registering device clients to the multiplexed connection", e);
             }
 
             // Codes_SRS_TRANSPORTCLIENT_12_013: [The function shall open the transport in multiplexing mode.]

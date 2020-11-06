@@ -243,9 +243,10 @@ public class TokenRenewalTests extends IntegrationTest
         for (int i = 0; i < MULTIPLEX_COUNT; i++)
         {
             DeviceClient deviceClientToMultiplex = (DeviceClient) createDeviceClient(protocol, true);
-            multiplexingClient.registerDeviceClient(deviceClientToMultiplex, false);
             createdClients.add(deviceClientToMultiplex);
         }
+
+        multiplexingClient.registerDeviceClients(createdClients);
 
         return multiplexingClient;
     }

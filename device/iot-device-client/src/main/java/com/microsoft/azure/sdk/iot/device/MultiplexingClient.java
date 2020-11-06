@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -113,7 +114,7 @@ public class MultiplexingClient
      * <p>
      * If this client is already closed, then this method will do nothing.
      * <p>
-     * Once closed, this client can be re-opened. It will preserve the previously registered device clients.
+     * Once closed, this client can be re-opened. It will preserve all previously registered device clients.
      * <p>
      * @throws IOException If any exception occurs while closing the connection.
      */
@@ -141,107 +142,170 @@ public class MultiplexingClient
     }
 
     /**
-     * Add a device to this multiplexing client. This method may be called before or after opening the multiplexed
-     * connection, but will behave differently depending on when it was called.
+     * Register a device client to this multiplexing client. This method may be called before or after opening the
+     * multiplexed connection.
      * <p>
-     * Up to 1000 devices can be registered on a multiplexed AMQPS connection, and up to 500 devices can be registered on a
-     * multiplexed AMQPS_WS connection.
+     * Users should use {@link #registerDeviceClients(Iterable)} for registering multiple devices as it has some
+     * performance improvements over repeatedly calling this method. This method blocks on each registration, whereas
+     * {@link #registerDeviceClients(Iterable)} blocks on all of the registrations after starting them all asynchronously.
+     * <p>
+     * Up to {@link #MAX_MULTIPLEX_DEVICE_COUNT_AMQPS} devices can be registered on a multiplexed AMQPS connection,
+     * and up to {@link #MAX_MULTIPLEX_DEVICE_COUNT_AMQPS_WS} devices can be registered on a multiplexed AMQPS_WS connection.
      * <p>
      * If the multiplexing client is already open, then this device client will automatically
      * be opened, too. If the multiplexing client is not open yet, then this device client will not be opened until
      * {@link MultiplexingClient#open()} is called.
      * <p>
-     * If the multiplexed connection is already open, then this is an asynchronous operation. You can track the state of your
-     * device session using the {@link DeviceClient#registerConnectionStatusChangeCallback(IotHubConnectionStatusChangeCallback, Object)}.
-     * That callback will execute once your device session has successfully been added to the existing multiplexed connection and
-     * is ready to send telemetry.
+     * If the multiplexed connection is already open, then this call will asynchronously add each device client to the
+     * multiplexed connection, and then will block until all registrations have been completed.
      * <p>
-     * Any proxy settings set to the provided device client will be overwritten by the proxy settings of this multiplexing client.
+     * Any proxy settings set to the provided device clients will be overwritten by the proxy settings of this multiplexing client.
      * <p>
-     * The registered device client instance must use the same transport protocol (AMQPS or AMQPS_WS) that this multiplexing client uses.
+     * The registered device client must use the same transport protocol (AMQPS or AMQPS_WS) that this multiplexing client uses.
      * <p>
-     * The registered device client may have its own retry policy and its own SAS token expiry time, separate from every other multiplexed device.
+     * Each registered device client may have its own retry policy and its own SAS token expiry time, separate from every other registered device client.
      * <p>
      * The registered device client must use symmetric key based authentication.
      * <p>
      * The registered device client must belong to the same IoT Hub as all previously registered device clients.
      * <p>
-     * If this device client is already registered, then this method will throw a {@link IllegalStateException}
+     * If the provided device client is already registered to this multiplexing client, then then this method will not
+     * do anything.
      * <p>
-     * @throws IOException if any exception is thrown when closing the provided device client's old transport layer.
+     * @throws InterruptedException If the thread gets interrupted while waiting for the registration to succeed. This
+     * will never be thrown if the multiplexing client is not open yet.
      * @param deviceClient The device client to associate with this multiplexing client.
      */
-    public void registerDeviceClient(DeviceClient deviceClient, boolean blocking) {
+    public void registerDeviceClient(DeviceClient deviceClient) throws InterruptedException {
         Objects.requireNonNull(deviceClient);
+        List<DeviceClient> clientList = new ArrayList<>();
+        clientList.add(deviceClient);
+        registerDeviceClients(clientList);
+    }
+
+    /**
+     * Register device clients to this multiplexing client. This method may be called before or after opening the multiplexed
+     * connection.
+     * <p>
+     * Up to {@link #MAX_MULTIPLEX_DEVICE_COUNT_AMQPS} devices can be registered on a multiplexed AMQPS connection,
+     * and up to {@link #MAX_MULTIPLEX_DEVICE_COUNT_AMQPS_WS} devices can be registered on a multiplexed AMQPS_WS connection.
+     * <p>
+     * If the multiplexing client is already open, then these device clients will automatically
+     * be opened, too. If the multiplexing client is not open yet, then these device clients will not be opened until
+     * {@link MultiplexingClient#open()} is called.
+     * <p>
+     * If the multiplexed connection is already open, then this call will asynchronously add each device client to the
+     * multiplexed connection, and then will block until all registrations have been completed.
+     * <p>
+     * Any proxy settings set to the provided device clients will be overwritten by the proxy settings of this multiplexing client.
+     * <p>
+     * The registered device clients must use the same transport protocol (AMQPS or AMQPS_WS) that this multiplexing client uses.
+     * <p>
+     * Each registered device client may have its own retry policy and its own SAS token expiry time, separate from every other registered device client.
+     * <p>
+     * The registered device clients must use symmetric key based authentication.
+     * <p>
+     * The registered device clients must belong to the same IoT Hub as all previously registered device clients.
+     * <p>
+     * If any of these device clients are already registered to this multiplexing client, then then this method will
+     * not do anything to that particular device client. All other provided device clients will still be registered though.
+     * <p>
+     * @throws InterruptedException If the thread gets interrupted while waiting for the registration to succeed. This
+     * will never be thrown if the multiplexing client is not open yet.
+     * @param deviceClients The device clients to associate with this multiplexing client.
+     */
+    public void registerDeviceClients(Iterable<DeviceClient> deviceClients) throws InterruptedException {
+        Objects.requireNonNull(deviceClients);
 
         synchronized (this.lock)
         {
-            for (DeviceClient currentClient : deviceClientList)
+            List<DeviceClientConfig> deviceClientConfigsToRegister = new ArrayList<>();
+            for (DeviceClient deviceClientToRegister : deviceClients)
             {
-                String currentDeviceId = currentClient.getConfig().getDeviceId();
-                if (currentDeviceId.equalsIgnoreCase(deviceClient.getConfig().getDeviceId()))
+                DeviceClientConfig configToAdd = deviceClientToRegister.getConfig();
+
+                boolean deviceAlreadyRegistered = false;
+                for (DeviceClient currentClient : deviceClientList)
                 {
-                    log.debug("Device {} wasn't registered to the multiplexed connection because it is already registered.", currentDeviceId);
-                    return;
+                    String currentDeviceId = currentClient.getConfig().getDeviceId();
+                    if (currentDeviceId.equalsIgnoreCase(configToAdd.getDeviceId()))
+                    {
+                        deviceAlreadyRegistered = true;
+                        break;
+                    }
                 }
+
+                if (deviceAlreadyRegistered)
+                {
+                    log.debug("Device {} wasn't registered to the multiplexed connection because it is already registered.", configToAdd.getDeviceId());
+                    continue;
+                }
+
+                if (configToAdd.getAuthenticationType() != DeviceClientConfig.AuthType.SAS_TOKEN)
+                {
+                    throw new UnsupportedOperationException("Can only register to multiplex a device client that uses SAS token based authentication");
+                }
+
+                if (configToAdd.getProtocol() != this.protocol)
+                {
+                    throw new UnsupportedOperationException("A device client cannot be registered to a multiplexing client that specifies a different transport protocol.");
+                }
+
+                if (this.protocol == IotHubClientProtocol.AMQPS && this.deviceClientList.size() > MAX_MULTIPLEX_DEVICE_COUNT_AMQPS)
+                {
+                    throw new UnsupportedOperationException(String.format("Multiplexed connections over AMQPS only support up to %d devices", MAX_MULTIPLEX_DEVICE_COUNT_AMQPS));
+                }
+
+                // Typically client side validation is duplicate work, but IoT Hub doesn't give a good error message when closing the
+                // AMQPS_WS connection so this is the only way that users will know about this limit
+                if (this.protocol == IotHubClientProtocol.AMQPS_WS && this.deviceClientList.size() > MAX_MULTIPLEX_DEVICE_COUNT_AMQPS_WS)
+                {
+                    throw new UnsupportedOperationException(String.format("Multiplexed connections over AMQPS_WS only support up to %d devices", MAX_MULTIPLEX_DEVICE_COUNT_AMQPS_WS));
+                }
+
+                if (this.deviceClientList.size() > 1 && !this.deviceClientList.get(0).getConfig().getIotHubHostname().equalsIgnoreCase(configToAdd.getIotHubHostname()))
+                {
+                    throw new UnsupportedOperationException("A device client cannot be registered to a multiplexing client that specifies a different host name.");
+                }
+
+                // The first device to be registered will cause this client to build the IO layer with its configuration
+                if (this.deviceIO == null)
+                {
+                    log.debug("Creating DeviceIO layer for multiplexing client since this is the first registered device");
+                    this.deviceIO = new DeviceIO(configToAdd, SEND_PERIOD_MILLIS, RECEIVE_PERIOD_MILLIS);
+
+                    this.deviceIO.registerMultiplexingConnectionStateCallback(this.connectionStatusChangeCallback, this.connectionStatusChangeCallbackContext);
+                }
+
+                if (deviceClientToRegister.getDeviceIO() != null && deviceClientToRegister.getDeviceIO().isOpen())
+                {
+                    throw new IllegalStateException("Cannot register a device client to a multiplexed connection when it the device client is already open.");
+                }
+
+                deviceClientToRegister.setAsMultiplexed();
+                deviceClientToRegister.setDeviceIO(this.deviceIO);
+                configToAdd.setProxy(this.proxySettings);
+                deviceClientToRegister.setConnectionType(IoTHubConnectionType.USE_MULTIPLEXING_CLIENT);
+                this.deviceClientList.add(deviceClientToRegister);
+                deviceClientConfigsToRegister.add(configToAdd);
             }
-
-            if (deviceClient.getConfig().getAuthenticationType() != DeviceClientConfig.AuthType.SAS_TOKEN)
-            {
-                throw new UnsupportedOperationException("Can only register to multiplex a device client that uses SAS token based authentication");
-            }
-
-            if (deviceClient.getConfig().getProtocol() != this.protocol)
-            {
-                throw new UnsupportedOperationException("A device client cannot be registered to a multiplexing client that specifies a different transport protocol.");
-            }
-
-            if (this.protocol == IotHubClientProtocol.AMQPS && this.deviceClientList.size() > MAX_MULTIPLEX_DEVICE_COUNT_AMQPS)
-            {
-                throw new UnsupportedOperationException(String.format("Multiplexed connections over AMQPS only support up to %d devices", MAX_MULTIPLEX_DEVICE_COUNT_AMQPS));
-            }
-
-            // Typically client side validation is duplicate work, but IoT Hub doesn't give a good error message when closing the
-            // AMQPS_WS connection so this is the only way that users will know about this limit
-            if (this.protocol == IotHubClientProtocol.AMQPS_WS && this.deviceClientList.size() > MAX_MULTIPLEX_DEVICE_COUNT_AMQPS_WS)
-            {
-                throw new UnsupportedOperationException(String.format("Multiplexed connections over AMQPS_WS only support up to %d devices", MAX_MULTIPLEX_DEVICE_COUNT_AMQPS_WS));
-            }
-
-            if (this.deviceClientList.size() > 1 && !this.deviceClientList.get(0).getConfig().getIotHubHostname().equalsIgnoreCase(deviceClient.getConfig().getIotHubHostname()))
-            {
-                throw new UnsupportedOperationException("A device client cannot be registered to a multiplexing client that specifies a different host name.");
-            }
-
-            // The first device to be registered will cause this client to build the IO layer with its configuration
-            if (this.deviceIO == null)
-            {
-                log.debug("Creating DeviceIO layer for multiplexing client since this is the first registered device");
-                this.deviceIO = new DeviceIO(deviceClient.getConfig(), SEND_PERIOD_MILLIS, RECEIVE_PERIOD_MILLIS);
-
-                this.deviceIO.registerMultiplexingConnectionStateCallback(this.connectionStatusChangeCallback, this.connectionStatusChangeCallbackContext);
-            }
-
-            if (deviceClient.getDeviceIO() != null && deviceClient.getDeviceIO().isOpen())
-            {
-                throw new IllegalStateException("Cannot register a device client to a multiplexed connection when it the device client is already open.");
-            }
-
-            deviceClient.setAsMultiplexed();
-            deviceClient.setDeviceIO(this.deviceIO);
-            deviceClient.getConfig().setProxy(this.proxySettings);
-            deviceClient.setConnectionType(IoTHubConnectionType.USE_MULTIPLEXING_CLIENT);
-            this.deviceClientList.add(deviceClient);
 
             // if the device IO hasn't been created yet, then this client will be registered once it is created.
-            log.info("Registering device {} to multiplexing client", deviceClient.getConfig().getDeviceId());
-            this.deviceIO.registerMultiplexedDeviceClient(deviceClient.getConfig(), blocking);
+            for (DeviceClientConfig configBeingRegistered : deviceClientConfigsToRegister)
+            {
+                log.info("Registering device {} to multiplexing client", configBeingRegistered.getDeviceId());
+            }
+            this.deviceIO.registerMultiplexedDeviceClient(deviceClientConfigsToRegister);
         }
     }
 
     /**
      * Remove a device client from this multiplexing client. This method may be called before or after opening the
-     * multiplexed connection, but will behave differently depending on when it was called.
+     * multiplexed connection.
+     * <p>
+     * Users should use {@link #unregisterDeviceClients(Iterable)} for unregistering multiple devices as it has some
+     * performance improvements over repeatedly calling this method. This method blocks on each unregistration, whereas
+     * {@link #registerDeviceClients(Iterable)} blocks on all of the unregistrations after starting them all asynchronously.
      * <p>
      * If the multiplexed connection is already open, then this call will close the AMQP device session associated with
      * this device, but it will not close any other registered device sessions or the multiplexing client itself.
@@ -257,21 +321,37 @@ public class MultiplexingClient
      * <p>
      * @param deviceClient The device client to unregister from this multiplexing client.
      */
-    public void unregisterDeviceClient(DeviceClient deviceClient)
+    public void unregisterDeviceClient(DeviceClient deviceClient) throws InterruptedException
     {
         Objects.requireNonNull(deviceClient);
+        List<DeviceClient> clientList = new ArrayList<>();
+        clientList.add(deviceClient);
+        unregisterDeviceClients(clientList);
+    }
+
+    public void unregisterDeviceClients(Iterable<DeviceClient> deviceClients) throws InterruptedException
+    {
+        Objects.requireNonNull(deviceClients);
 
         synchronized (this.lock)
         {
-            if (deviceClientList.size() <= 1)
+            List<DeviceClientConfig> deviceClientConfigsToRegister = new ArrayList<>();
+            for (DeviceClient deviceClientToUnregister : deviceClients)
             {
-                throw new IllegalStateException("Cannot unregister the last device. At least one device client must be registered to this multiplexing client.");
+                //TODO maybe remove this
+                //if (deviceClientList.size() <= 1)
+                //{
+                //    throw new IllegalStateException("Cannot unregister the last device. At least one device client must be registered to this multiplexing client.");
+                //}
+
+                DeviceClientConfig configToUnregister = deviceClientToUnregister.getConfig();
+                deviceClientConfigsToRegister.add(configToUnregister);
+                log.info("Unregistering device {} from multiplexing client", deviceClientToUnregister.getConfig().getDeviceId());
+                this.deviceClientList.remove(deviceClientToUnregister);
+                deviceClientToUnregister.setDeviceIO(null);
             }
 
-            log.info("Unregistering device {} from multiplexing client", deviceClient.getConfig().getDeviceId());
-            this.deviceClientList.remove(deviceClient);
-            this.deviceIO.unregisterMultiplexedDeviceClient(deviceClient.getConfig());
-            deviceClient.setDeviceIO(null);
+            this.deviceIO.unregisterMultiplexedDeviceClient(deviceClientConfigsToRegister);
         }
     }
 

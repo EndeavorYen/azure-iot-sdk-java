@@ -667,58 +667,74 @@ public class IotHubTransport implements IotHubListener
         this.multiplexingStateCallbackContext = callbackContext;
     }
 
-    public void registerMultiplexedDeviceClient(DeviceClientConfig config, boolean blocking)
-    {
+    public void registerMultiplexedDeviceClient(List<DeviceClientConfig> configs) throws InterruptedException {
         if (getProtocol() != IotHubClientProtocol.AMQPS && getProtocol() != IotHubClientProtocol.AMQPS_WS)
         {
             throw new UnsupportedOperationException("Cannot add a multiplexed device unless connection is over AMQPS or AMQPS_WS");
         }
 
-        // default config is already in this list, so don't add it again
-        if (!this.deviceClientConfigs.contains(config))
+        for (DeviceClientConfig configToRegister : configs)
         {
-            this.deviceClientConfigs.add(config);
-        }
-
-        this.deviceConnectionStates.put(config.getDeviceId(), IotHubConnectionStatus.DISCONNECTED);
-        if (this.iotHubTransportConnection != null)
-        {
-            // Safe cast since amqps and amqps_ws always use this transport connection type.
-            ((AmqpsIotHubConnection) this.iotHubTransportConnection).registerMultiplexedDevice(config);
-        }
-
-        if (blocking && this.connectionStatus != IotHubConnectionStatus.DISCONNECTED)
-        {
-            while (deviceConnectionStates.get(config.getDeviceId()) != IotHubConnectionStatus.CONNECTED)
+            // default config is already in this list, so don't add it again
+            if (!this.deviceClientConfigs.contains(configToRegister))
             {
-                try {
+                this.deviceClientConfigs.add(configToRegister);
+            }
+
+            this.deviceConnectionStates.put(configToRegister.getDeviceId(), IotHubConnectionStatus.DISCONNECTED);
+            if (this.iotHubTransportConnection != null)
+            {
+                // Safe cast since amqps and amqps_ws always use this transport connection type.
+                ((AmqpsIotHubConnection) this.iotHubTransportConnection).registerMultiplexedDevice(configToRegister);
+            }
+        }
+
+        // If the multiplexed connection is active, block until all the registered devices have been connected.
+        if (this.connectionStatus != IotHubConnectionStatus.DISCONNECTED)
+        {
+            for (DeviceClientConfig newlyRegisteredConfig : configs)
+            {
+                while (deviceConnectionStates.get(newlyRegisteredConfig.getDeviceId()) != IotHubConnectionStatus.CONNECTED)
+                {
                     Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    //TODO probably throw instead
-                    e.printStackTrace();
                 }
             }
         }
     }
 
-    public void unregisterMultiplexedDeviceClient(DeviceClientConfig config)
+    public void unregisterMultiplexedDeviceClient(List<DeviceClientConfig> configs) throws InterruptedException
     {
         if (getProtocol() != IotHubClientProtocol.AMQPS && getProtocol() != IotHubClientProtocol.AMQPS_WS)
         {
             throw new UnsupportedOperationException("Cannot add a multiplexed device unless connection is over AMQPS or AMQPS_WS");
         }
 
-        if (this.iotHubTransportConnection != null)
+        for (DeviceClientConfig configToRegister : configs)
         {
-            // Safe cast since amqps and amqps_ws always use this transport connection type.
-            ((AmqpsIotHubConnection) this.iotHubTransportConnection).unregisterMultiplexedDevice(config);
-        }
-        else
-        {
-            this.deviceConnectionStates.remove(config.getDeviceId());
+            if (this.iotHubTransportConnection != null)
+            {
+                // Safe cast since amqps and amqps_ws always use this transport connection type.
+                ((AmqpsIotHubConnection) this.iotHubTransportConnection).unregisterMultiplexedDevice(configToRegister);
+            }
+            else
+            {
+                this.deviceConnectionStates.remove(configToRegister.getDeviceId());
+            }
+
+            this.deviceClientConfigs.remove(configToRegister);
         }
 
-        this.deviceClientConfigs.remove(config);
+        // If the multiplexed connection is active, block until all the unregistered devices have been disconnected.
+        if (this.connectionStatus != IotHubConnectionStatus.DISCONNECTED)
+        {
+            for (DeviceClientConfig newlyUnregisteredConfig : configs)
+            {
+                while (deviceConnectionStates.get(newlyUnregisteredConfig.getDeviceId()) != IotHubConnectionStatus.DISCONNECTED)
+                {
+                    Thread.sleep(200);
+                }
+            }
+        }
     }
 
     /**

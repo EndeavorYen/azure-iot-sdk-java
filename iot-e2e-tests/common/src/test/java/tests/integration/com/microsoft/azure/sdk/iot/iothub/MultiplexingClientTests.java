@@ -72,8 +72,6 @@ public class MultiplexingClientTests extends IntegrationTest
     protected static final String testProxyUser = "proxyUsername";
     protected static final char[] testProxyPass = "1234".toCharArray();
 
-    private static final int MULTIPLEXING_CLIENT_TEST_TIMEOUT_MINUTES = 15;
-
     @Parameterized.Parameters(name = "{0}")
     public static Collection inputs() throws Exception
     {
@@ -96,9 +94,6 @@ public class MultiplexingClientTests extends IntegrationTest
     public MultiplexingClientTests(IotHubClientProtocol protocol)
     {
         this.testInstance = new MultiplexingClientTestInstance(protocol);
-
-        // Some CI tests in this suite take upwards of 6 minutes to run normally, so this timeout overrides the default timeout of 5 minutes
-        timeout = new Timeout(MULTIPLEXING_CLIENT_TEST_TIMEOUT_MINUTES, TimeUnit.MINUTES);
     }
 
     public MultiplexingClientTestInstance testInstance;
@@ -138,8 +133,9 @@ public class MultiplexingClientTests extends IntegrationTest
             for (int i = 0; i < multiplexingDeviceSessionCount; i++)
             {
                 this.deviceClientArray.add(i, new DeviceClient(registryManager.getDeviceConnectionString(deviceIdentityArray.get(i)), this.protocol));
-                this.multiplexingClient.registerDeviceClient(this.deviceClientArray.get(i), false);
             }
+
+            this.multiplexingClient.registerDeviceClients(this.deviceClientArray);
         }
 
         public void dispose()
@@ -220,7 +216,6 @@ public class MultiplexingClientTests extends IntegrationTest
         testInstance.multiplexingClient.close();
     }
 
-    // This test takes a very long time to run, even for continuous integration standards. Roughly 8-10 minutes
     @ContinuousIntegrationTest
     @Test
     public void sendMessagesMaxDevicesAllowed() throws Exception
@@ -259,17 +254,11 @@ public class MultiplexingClientTests extends IntegrationTest
         }
 
         // unregister all but the 0th device so that they can all be registered after opening the connection
-        for (int i = 1; i < testInstance.deviceClientArray.size(); i++)
-        {
-            testInstance.multiplexingClient.unregisterDeviceClient(testInstance.deviceClientArray.get(i));
-        }
+        testInstance.multiplexingClient.unregisterDeviceClients(testInstance.deviceClientArray.subList(1, testInstance.deviceClientArray.size()));
 
         testInstance.multiplexingClient.open();
 
-        for (int i = 1; i < testInstance.deviceClientArray.size(); i++)
-        {
-            testInstance.multiplexingClient.registerDeviceClient(testInstance.deviceClientArray.get(i), true);
-        }
+        testInstance.multiplexingClient.registerDeviceClients(testInstance.deviceClientArray);
 
         testSendingMessagesFromMultiplexedClients(testInstance.deviceClientArray);
 
@@ -292,10 +281,7 @@ public class MultiplexingClientTests extends IntegrationTest
         }
 
         // unregister all but the 0th device so that they can all be registered after opening the connection
-        for (int i = 1; i < testInstance.deviceClientArray.size(); i++)
-        {
-            testInstance.multiplexingClient.unregisterDeviceClient(testInstance.deviceClientArray.get(i));
-        }
+        testInstance.multiplexingClient.unregisterDeviceClients(testInstance.deviceClientArray.subList(1, testInstance.deviceClientArray.size()));
 
         testInstance.multiplexingClient.open();
 
@@ -304,11 +290,13 @@ public class MultiplexingClientTests extends IntegrationTest
         {
             connectionStatusChangeTrackers[i] = new ConnectionStatusChangeTracker();
             testInstance.deviceClientArray.get(i).registerConnectionStatusChangeCallback(connectionStatusChangeTrackers[i], null);
-            testInstance.multiplexingClient.registerDeviceClient(testInstance.deviceClientArray.get(i), false);
         }
+
+        testInstance.multiplexingClient.registerDeviceClients(testInstance.deviceClientArray);
 
         for (int i = 1; i < testInstance.deviceClientArray.size(); i++)
         {
+            //TODO failing
             assertConnectionStateCallbackFiredConnected(connectionStatusChangeTrackers[i], DEVICE_SESSION_OPEN_TIMEOUT);
         }
 
@@ -684,7 +672,7 @@ public class MultiplexingClientTests extends IntegrationTest
         ConnectionStatusChangeTracker connectionStatusChangeTracker = new ConnectionStatusChangeTracker();
         clientToRegisterAfterOpen.registerConnectionStatusChangeCallback(connectionStatusChangeTracker, null);
 
-        testInstance.multiplexingClient.registerDeviceClient(clientToRegisterAfterOpen, false);
+        testInstance.multiplexingClient.registerDeviceClient(clientToRegisterAfterOpen);
 
         assertConnectionStateCallbackFiredConnected(connectionStatusChangeTracker, DEVICE_SESSION_OPEN_TIMEOUT);
 
