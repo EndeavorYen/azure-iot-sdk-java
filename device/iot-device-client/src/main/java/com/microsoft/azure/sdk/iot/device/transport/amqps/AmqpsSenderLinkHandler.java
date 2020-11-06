@@ -113,12 +113,14 @@ public abstract class AmqpsSenderLinkHandler extends BaseHandler
         {
             log.debug("{} sender link with link correlation id {} was closed remotely unexpectedly", getLinkInstanceType(), this.linkCorrelationId);
             link.close();
+            link.free();
             this.amqpsLinkStateCallback.onLinkClosedUnexpectedly(link.getRemoteCondition());
         }
         else
         {
             log.trace("Closing amqp session now that this {} sender link with link correlation id {} has closed remotely and locally", getLinkInstanceType(), linkCorrelationId);
             event.getSession().close();
+            event.getSession().free();
         }
     }
 
@@ -130,6 +132,7 @@ public abstract class AmqpsSenderLinkHandler extends BaseHandler
         {
             log.trace("Closing amqp session now that this {} sender link with link correlation id {} has closed remotely and locally", getLinkInstanceType(), linkCorrelationId);
             event.getSession().close();
+            event.getSession().free();
         }
         else
         {
@@ -143,6 +146,7 @@ public abstract class AmqpsSenderLinkHandler extends BaseHandler
         {
             log.debug("Closing {} sender link with link correlation id {}", getLinkInstanceType(), this.linkCorrelationId);
             this.senderLink.close();
+            this.senderLink.free();
         }
     }
 

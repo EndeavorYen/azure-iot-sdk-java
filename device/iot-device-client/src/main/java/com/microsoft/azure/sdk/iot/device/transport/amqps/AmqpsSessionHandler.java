@@ -11,6 +11,8 @@ import org.apache.qpid.proton.amqp.messaging.Accepted;
 import org.apache.qpid.proton.amqp.transport.DeliveryState;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.engine.*;
+import org.apache.qpid.proton.engine.impl.EndpointImpl;
+import org.apache.qpid.proton.engine.impl.SessionImpl;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -85,6 +87,7 @@ public class AmqpsSessionHandler extends BaseHandler implements AmqpsLinkStateCa
         if (this.session != null)
         {
             this.session.close();
+            this.session.free();
         }
     }
 
@@ -118,6 +121,7 @@ public class AmqpsSessionHandler extends BaseHandler implements AmqpsLinkStateCa
         {
             //Service initiated this session close
             this.session.close();
+            this.session.free();
 
             log.debug("Amqp device session closed remotely unexpectedly for device {}", getDeviceId());
             this.amqpsSessionStateCallback.onSessionClosedUnexpectedly(session.getRemoteCondition(), this.getDeviceId());
@@ -249,6 +253,7 @@ public class AmqpsSessionHandler extends BaseHandler implements AmqpsLinkStateCa
     {
         log.trace("Link closed unexpectedly for the amqp session of device {}", this.getDeviceId());
         this.session.close();
+        this.session.free();
         this.amqpsSessionStateCallback.onSessionClosedUnexpectedly(errorCondition, this.getDeviceId());
     }
 

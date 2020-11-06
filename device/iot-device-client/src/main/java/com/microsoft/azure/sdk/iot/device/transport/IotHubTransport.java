@@ -90,6 +90,8 @@ public class IotHubTransport implements IotHubListener
     // layer's responsibility to notify that task each time a message is received.
     private final Object receiveThreadLock = new Object();
 
+    private final IotHubClientProtocol protocol;
+
     /**
      * Constructor for an IotHubTransport object with default values
      * @param defaultConfig the config used for opening connections, retrieving retry policy, and checking protocol
@@ -101,6 +103,8 @@ public class IotHubTransport implements IotHubListener
         {
             throw new IllegalArgumentException("Config cannot be null");
         }
+
+        this.protocol = defaultConfig.getProtocol();
 
         this.deviceClientConfigs.add(defaultConfig);
         this.deviceConnectionStates.put(defaultConfig.getDeviceId(), IotHubConnectionStatus.DISCONNECTED);
@@ -446,7 +450,7 @@ public class IotHubTransport implements IotHubListener
 
     public IotHubClientProtocol getProtocol()
     {
-        return this.getDefaultConfig().getProtocol();
+        return this.protocol;
     }
 
     /**

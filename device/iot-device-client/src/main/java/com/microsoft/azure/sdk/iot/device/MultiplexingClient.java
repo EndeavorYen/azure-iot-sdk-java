@@ -300,7 +300,7 @@ public class MultiplexingClient
     }
 
     /**
-     * Remove a device client from this multiplexing client. This method may be called before or after opening the
+     * Unregister a device client from this multiplexing client. This method may be called before or after opening the
      * multiplexed connection.
      * <p>
      * Users should use {@link #unregisterDeviceClients(Iterable)} for unregistering multiple devices as it has some
@@ -310,14 +310,11 @@ public class MultiplexingClient
      * If the multiplexed connection is already open, then this call will close the AMQP device session associated with
      * this device, but it will not close any other registered device sessions or the multiplexing client itself.
      * <p>
-     * If the multiplexed connection is already open, then this is an asynchronous operation and you can track the state of your
-     * device session using the {@link DeviceClient#registerConnectionStatusChangeCallback(IotHubConnectionStatusChangeCallback, Object)}.
-     * <p>
-     * If the multiplexed connection is already open, then at least one device client must be registered at any given time.
-     * Because of this, this method will throw an {@link IllegalStateException} if it attempts to remove the last device client.
+     * If the multiplexed connection is already open, and this call would unregister the last device client,
+     * the multiplexed connection will remain open, and new device clients registered to it will be opened automatically.
      * <p>
      * Once a device client is unregistered, it may be re-registered to this or any other multiplexing client. It cannot
-     * be used in non-multiplexing scenarios though.
+     * be used in non-multiplexing scenarios or used by the deprecated {@link TransportClient}.
      * <p>
      * @param deviceClient The device client to unregister from this multiplexing client.
      */
@@ -329,6 +326,21 @@ public class MultiplexingClient
         unregisterDeviceClients(clientList);
     }
 
+    /**
+     * Unregister device clients from this multiplexing client. This method may be called before or after opening the
+     * multiplexed connection.
+     * <p>
+     * If the multiplexed connection is already open, then this call will close the AMQP device session associated with
+     * this device, but it will not close any other registered device sessions or the multiplexing client itself.
+     * <p>
+     * If the multiplexed connection is already open, and this call would unregister the last device client,
+     * the multiplexed connection will remain open, and new device clients registered to it will be opened automatically.
+     * <p>
+     * Once a device client is unregistered, it may be re-registered to this or any other multiplexing client. It cannot
+     * be used in non-multiplexing scenarios or used by the deprecated {@link TransportClient}.
+     * <p>
+     * @param deviceClients The device clients to unregister from this multiplexing client.
+     */
     public void unregisterDeviceClients(Iterable<DeviceClient> deviceClients) throws InterruptedException
     {
         Objects.requireNonNull(deviceClients);
@@ -338,12 +350,6 @@ public class MultiplexingClient
             List<DeviceClientConfig> deviceClientConfigsToRegister = new ArrayList<>();
             for (DeviceClient deviceClientToUnregister : deviceClients)
             {
-                //TODO maybe remove this
-                //if (deviceClientList.size() <= 1)
-                //{
-                //    throw new IllegalStateException("Cannot unregister the last device. At least one device client must be registered to this multiplexing client.");
-                //}
-
                 DeviceClientConfig configToUnregister = deviceClientToUnregister.getConfig();
                 deviceClientConfigsToRegister.add(configToUnregister);
                 log.info("Unregistering device {} from multiplexing client", deviceClientToUnregister.getConfig().getDeviceId());
@@ -389,7 +395,10 @@ public class MultiplexingClient
      */
     public boolean isDeviceRegistered(DeviceClient deviceClient)
     {
-        return this.deviceClientList.contains(deviceClient);
+        synchronized (this.lock)
+        {
+            return this.deviceClientList.contains(deviceClient);
+        }
     }
 
     /**
@@ -398,8 +407,11 @@ public class MultiplexingClient
      */
     public int getRegisteredDeviceCount()
     {
-        // O(1) operation since ArrayList saves this value as an integer rather than iterating over each.
-        // So there is no need to be more clever about this.
-        return this.deviceClientList.size();
+        synchronized (this.lock)
+        {
+            // O(1) operation since ArrayList saves this value as an integer rather than iterating over each element.
+            // So there is no need to be more clever about this.
+            return this.deviceClientList.size();
+        }
     }
 }

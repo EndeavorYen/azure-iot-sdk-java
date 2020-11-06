@@ -69,6 +69,7 @@ public class AmqpsCbsSessionHandler extends BaseHandler implements AmqpsLinkStat
     {
         log.trace("CBS session closed remotely");
         this.session.getConnection().close();
+        this.session.getConnection().free();
 
         this.cbsSenderLinkHandler.close();
         this.cbsReceiverLinkHandler.close();
@@ -84,7 +85,7 @@ public class AmqpsCbsSessionHandler extends BaseHandler implements AmqpsLinkStat
             log.debug("Amqp CBS session closed remotely unexpectedly");
             this.connectionStateCallback.onCBSSessionClosedUnexpectedly(session.getRemoteCondition());
 
-            this.session.close();
+            this.close();
         }
         else
         {
@@ -140,6 +141,7 @@ public class AmqpsCbsSessionHandler extends BaseHandler implements AmqpsLinkStat
     {
         log.trace("CBS link closed unexpectedly, closing the CBS session");
         this.session.close();
+        this.session.free();
         this.connectionStateCallback.onCBSSessionClosedUnexpectedly(errorCondition);
     }
 
@@ -152,5 +154,6 @@ public class AmqpsCbsSessionHandler extends BaseHandler implements AmqpsLinkStat
     {
         log.trace("Closing this CBS session");
         this.session.close();
+        this.session.free();
     }
 }

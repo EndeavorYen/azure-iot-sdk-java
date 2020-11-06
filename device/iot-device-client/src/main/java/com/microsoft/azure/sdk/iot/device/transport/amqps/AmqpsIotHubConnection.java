@@ -42,7 +42,6 @@ public final class AmqpsIotHubConnection extends BaseHandler implements IotHubTr
 {
     // Timeouts
     private static final int MAX_WAIT_TO_CLOSE_CONNECTION = 20 * 1000; // 20 second timeout
-    private static final int MAX_WAIT_TO_TERMINATE_EXECUTOR = 10;
 
     // Web socket constants
     private static final String WEB_SOCKET_PATH = "/$iothub/websocket";
@@ -397,6 +396,7 @@ public final class AmqpsIotHubConnection extends BaseHandler implements IotHubTr
             this.savedException = AmqpsExceptionTranslator.convertFromAmqpException(errorCondition);
             log.error("Amqp connection was closed remotely", this.savedException);
             this.connection.close();
+            this.connection.free();
         }
         else
         {
@@ -425,6 +425,7 @@ public final class AmqpsIotHubConnection extends BaseHandler implements IotHubTr
 
         log.error("Amqp transport error occurred, closing the amqps connection", this.savedException);
         event.getConnection().close();
+        event.getConnection().free();
     }
 
     @Override
@@ -606,6 +607,7 @@ public final class AmqpsIotHubConnection extends BaseHandler implements IotHubTr
             this.savedException = savedException;
             log.error("Amqp session closed unexpectedly. Closing this connection...", this.savedException);
             this.connection.close();
+            this.connection.free();
         }
     }
 
@@ -615,6 +617,7 @@ public final class AmqpsIotHubConnection extends BaseHandler implements IotHubTr
         this.savedException = AmqpsExceptionTranslator.convertFromAmqpException(errorCondition);
         log.error("Amqp CBS session closed unexpectedly. Closing this connection...", this.savedException);
         this.connection.close();
+        this.connection.free();
     }
 
     @Override
@@ -950,6 +953,7 @@ public final class AmqpsIotHubConnection extends BaseHandler implements IotHubTr
             // This should never happen as this block is only hit when the connection was initialized but its reactor was not
             log.warn("Connection was initialized without a reactor, connection is in an unknown state; closing connection anyways.");
             this.connection.close();
+            this.connection.free();
         }
         else if (this.connection.getLocalState() == EndpointState.CLOSED && this.connection.getRemoteState() == EndpointState.CLOSED)
         {
@@ -961,6 +965,7 @@ public final class AmqpsIotHubConnection extends BaseHandler implements IotHubTr
             //client is initializing this close, so don't shut down the reactor yet
             log.trace("Closing amqp connection");
             this.connection.close();
+            this.connection.free();
         }
     }
 
