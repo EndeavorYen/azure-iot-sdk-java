@@ -167,6 +167,7 @@ public class MultiplexingSample
 
         for (String deviceId : deviceIds)
         {
+            System.out.printf("Sending message from device %s%n", deviceId);
             Message message = new Message("some payload");
             multiplexedDeviceClients.get(deviceId).sendEventAsync(message, new TelemetryAcknowledgedEventCallback(), message.getMessageId());
         }
@@ -196,6 +197,8 @@ public class MultiplexingSample
         System.out.println("Re-registering device " + deviceIdToUnregister + " to an active multiplexed connection...");
         multiplexingClient.registerDeviceClient(multiplexedDeviceClients.get(deviceIdToUnregister));
         System.out.println("Successfully registered " + deviceIdToUnregister + " to an active multiplexed connection");
+
+        multiplexingClient.unregisterDeviceClients(multiplexedDeviceClients.values());
 
         System.out.println("Closing entire multiplexed connection...");
         // This call will close all multiplexed device client instances as well
